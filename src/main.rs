@@ -84,7 +84,7 @@ fn main() {
    let mut poll = mio::Poll::new().unwrap();
    const MIO_TOKEN: mio::Token = mio::Token(222);
    poll.registry().register(&mut local_udp_socket, MIO_TOKEN, mio::Interest::READABLE).unwrap();
-   let mut events = mio::Events::with_capacity(statics::MAX_CONCURRENCY + 1);
+   let mut events = mio::Events::with_capacity(340);
 
    let mut current_time = time::get_timespec();
    let mut timings_start: [time::timespec; statics::DOMAINS_TO_INCLUDE] = unsafe { core::mem::zeroed() };
@@ -115,12 +115,12 @@ fn main() {
             outstanding_queries += 1;
          }
       }
-      let _ = poll.poll(&mut events, Some(std::time::Duration::from_millis(1000)));
+      let _ = poll.poll(&mut events, Some(std::time::Duration::from_millis(100)));
 
       for event in events.iter() {
          if event.token() == MIO_TOKEN {
-            let num_bytes_read_maybe = local_udp_socket.recv(response_buf.as_mut_slice());
-            if let Ok(num_bytes_read) = num_bytes_read_maybe && num_bytes_read > 0 {
+            while let Ok(num_bytes_read) = local_udp_socket.recv(response_buf.as_mut_slice()) {
+               assert!(num_bytes_read > 0 && num_bytes_read < 512);
 
                let id_from_response = u16::swap_bytes(unsafe { *(response_buf.as_ptr() as *const u16) });
                timings_end[id_from_response as usize] = time::get_timespec();
