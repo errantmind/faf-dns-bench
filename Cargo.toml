@@ -1,0 +1,52 @@
+[package]
+name = "faf-dns-bench"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[profile.dev]
+opt-level = 1
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = 'unwind'
+incremental = true
+codegen-units = 256
+rpath = false
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+panic = 'abort'
+codegen-units = 1
+lto = "thin"
+debug = false
+incremental = false
+overflow-checks = false
+strip = 'symbols'
+
+[profile.release.package."*"]
+opt-level = 3
+codegen-units = 1
+
+
+[dependencies]
+faf-syscall = "*"
+
+# FFI bindings to better allocator designed by Microsoft
+mimalloc = { version = "*", default-features = false }
+
+clap = { version = "*", default-features = true, features = ["derive"] }
+lazy_static = "*"
+once_cell = "*"
+hashbrown = { version = "*", default-features = true, features = ["inline-more", "ahash"] }
+
+statrs = { version = "*", default-features = false }
+
+
+
