@@ -18,17 +18,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 // Domains fetched from Alexa on 2023-02-09 from: s3.amazonaws.com/alexa-static/top-1m.csv.zip
 
-#![allow(clippy::missing_safety_doc, clippy::uninit_assumed_init, dead_code)]
-
-use crate::time::timespec;
+#![allow(clippy::missing_safety_doc, clippy::uninit_assumed_init)]
+#![feature(let_chains)]
 
 mod args;
 mod const_sys;
 mod data;
-mod net;
 mod statics;
 mod time;
-mod util;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -48,6 +45,7 @@ pub struct epoll_event {
 }
 
 fn main() {
+   print_version();
    assert!(statics::DOMAINS_TO_INCLUDE <= u16::MAX as usize, "You can not include more than 65535 (u16 MAX) domains");
 
    let domains = data::read_domains(statics::DOMAINS_TO_INCLUDE);
@@ -78,41 +76,24 @@ fn main() {
 
    println!("Benchmarking {dns_server}#{dns_port}\n");
 
-   let dns_addr = unsafe {
-      net::sockaddr_in::new(
-         const_sys::AF_INET as u16,
-         net::htons(dns_port),
-         util::inet4_aton(dns_server.as_str() as *const _ as *const u8, dns_server.len()),
-      )
-   };
-   let local_udp_socket = net::get_udp_server_socket(0, const_sys::INADDR_ANY, 59233);
+   let mut local_udp_socket = mio::net::UdpSocket::bind("0.0.0.0:59233".parse().unwrap()).unwrap();
 
-   let epfd = faf_syscall::sys_call!(const_sys::SYS_EPOLL_CREATE1 as isize, 0);
-   // Add listener fd to epoll for monitoring
-   {
-      let epoll_event_listener = epoll_event { data: epoll_data { fd: local_udp_socket.fd as i32 }, events: const_sys::EPOLLIN };
+   let dns_addr = format!("{}:{}", dns_server.as_str(), dns_port);
+   local_udp_socket.connect(dns_addr.parse().unwrap()).unwrap();
 
-      let ret = faf_syscall::sys_call!(
-         const_sys::SYS_EPOLL_CTL as isize,
-         epfd,
-         const_sys::EPOLL_CTL_ADD as isize,
-         local_udp_socket.fd,
-         &epoll_event_listener as *const epoll_event as isize
-      );
-
-      assert!(ret >= 0);
-   }
-
-   let epoll_events: [epoll_event; statics::MAX_EPOLL_EVENTS_RETURNED as usize] = unsafe { core::mem::zeroed() };
-   let epoll_events_start_address = epoll_events.as_ptr() as isize;
+   let mut poll = mio::Poll::new().unwrap();
+   const MIO_TOKEN: mio::Token = mio::Token(222);
+   poll.registry().register(&mut local_udp_socket, MIO_TOKEN, mio::Interest::READABLE).unwrap();
+   let mut events = mio::Events::with_capacity(statics::MAX_CONCURRENCY + 1);
 
    let mut current_time = time::get_timespec();
-   let mut timings_start: [timespec; statics::DOMAINS_TO_INCLUDE] = unsafe { core::mem::zeroed() };
-   let mut timings_end: [timespec; statics::DOMAINS_TO_INCLUDE] = unsafe { core::mem::zeroed() };
+   let mut timings_start: [time::timespec; statics::DOMAINS_TO_INCLUDE] = unsafe { core::mem::zeroed() };
+   let mut timings_end: [time::timespec; statics::DOMAINS_TO_INCLUDE] = unsafe { core::mem::zeroed() };
    let mut current_query = 0;
    let mut completed_queries: usize = 0;
    let mut outstanding_queries: usize = 0;
    let mut finished_querying = false;
+   let mut response_buf: Vec<u8> = vec![0; 512];
 
    loop {
       if completed_queries == statics::DOMAINS_TO_INCLUDE
@@ -129,55 +110,24 @@ fn main() {
             }
 
             timings_start[current_query] = time::get_timespec();
-            // Write the query to the socket
-            let wrote = faf_syscall::sys_call!(
-               const_sys::SYS_SENDTO as _,
-               local_udp_socket.fd,
-               queries[current_query].as_ptr() as _,
-               queries[current_query].len() as _,
-               0,
-               &dns_addr as *const _ as _,
-               net::SOCKADDR_IN_LEN as _
-            );
-
-            assert!(wrote == queries[current_query].len() as isize);
-
+            local_udp_socket.send(&queries[current_query]).unwrap();
             current_query += 1;
             outstanding_queries += 1;
          }
       }
-      let num_incoming_events = faf_syscall::sys_call!(
-         const_sys::SYS_EPOLL_WAIT as isize,
-         epfd,
-         epoll_events_start_address,
-         statics::MAX_EPOLL_EVENTS_RETURNED,
-         statics::EPOLL_TIMEOUT_MILLIS
-      );
+      let _ = poll.poll(&mut events, Some(std::time::Duration::from_millis(1000)));
 
-      for index in 0..num_incoming_events {
-         let cur_fd = unsafe { (epoll_events.get_unchecked(index as usize)).data.fd } as isize;
+      for event in events.iter() {
+         if event.token() == MIO_TOKEN {
+            let num_bytes_read_maybe = local_udp_socket.recv(response_buf.as_mut_slice());
+            if let Ok(num_bytes_read) = num_bytes_read_maybe && num_bytes_read > 0 {
 
-         if cur_fd == local_udp_socket.fd {
-            let upstream_addr: net::sockaddr_in = unsafe { core::mem::zeroed() };
-            let client_socket_len = net::SOCKADDR_IN_LEN;
-            let response_buf: Vec<u8> = vec![0; 512];
-            let num_bytes_read = faf_syscall::sys_call!(
-               const_sys::SYS_RECVFROM as _,
-               local_udp_socket.fd,
-               response_buf.as_ptr() as _,
-               response_buf.len() as _,
-               0,
-               &upstream_addr as *const _ as _,
-               &client_socket_len as *const _ as _
-            );
-
-            if num_bytes_read > 0 {
                let id_from_response = u16::swap_bytes(unsafe { *(response_buf.as_ptr() as *const u16) });
                timings_end[id_from_response as usize] = time::get_timespec();
-               let domain_str = get_question_as_string(response_buf.as_ptr(), num_bytes_read as usize);
+               let domain_str = get_question_as_string(response_buf.as_ptr(), num_bytes_read);
                if statics::ARGS.debug {
                   println!("{num_bytes_read:>4}b -> {domain_str}");
-                  let response_slice = &response_buf[0..num_bytes_read as usize];
+                  let response_slice = &response_buf[0..num_bytes_read];
                   println!("{response_slice:?}");
                }
 
@@ -232,6 +182,10 @@ fn main() {
 
       println!("}}");
    }
+}
+
+fn print_version() {
+   println!("{} v{} | repo: https://github.com/errantmind/faf-dns-bench\n", statics::PROJECT_NAME, statics::VERSION,);
 }
 
 fn construct_query<'a>(domain: &str, id: u16, dest_buf: &mut [u8]) -> &'a [u8] {
