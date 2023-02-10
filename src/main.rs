@@ -76,7 +76,7 @@ fn main() {
       (server.to_string(), port)
    };
 
-   println!("{dns_server}#{dns_port}");
+   println!("Benchmarking {dns_server}#{dns_port}\n");
 
    let dns_addr = unsafe {
       net::sockaddr_in::new(
@@ -219,16 +219,16 @@ fn main() {
          );
       }
 
-      println!("results.json (ms)");
+      println!("results.json");
       println!("{{");
-      println!("  {:<9} : {:>7.2},", "\"median\"", median / 1_000_000f64);
-      println!("  {:<9} : {:>7.2},", "\"mean\"", mean / 1_000_000f64);
-      println!("  {:<9} : {:>7.2},", "\"std dev\"", std_dev / 1_000_000f64);
-      println!("  {:<9} : {:>7.2},", "\"min\"", min / 1_000_000f64);
-      println!("  {:<9} : {:>7.2},", "\"max\"", max / 1_000_000f64);
-      println!("  {:<9} : {:>7.2},", "\"samples (n)\"", statics::DOMAINS_TO_INCLUDE);
-      println!("  {:<9} : {:>7},", "\"concurrency\"", statics::MAX_CONCURRENCY);
-      println!("  {:<9} : {:>7}#{}", "\"server\"", dns_server, dns_port);
+      println!("  {:<13} : {:>7.2},", "\"median_ms\"", median / 1_000_000f64);
+      println!("  {:<13} : {:>7.2},", "\"mean_ms\"", mean / 1_000_000f64);
+      println!("  {:<13} : {:>7.2},", "\"stddev_ms\"", std_dev / 1_000_000f64);
+      println!("  {:<13} : {:>7.2},", "\"min_ms\"", min / 1_000_000f64);
+      println!("  {:<13} : {:>7.2},", "\"max_ms\"", max / 1_000_000f64);
+      println!("  {:<13} : {:>7.2},", "\"n_samples\"", statics::DOMAINS_TO_INCLUDE);
+      println!("  {:<13} : {:>7},", "\"concurrency\"", statics::MAX_CONCURRENCY);
+      println!("  {:<13} : \"{:>7}#{}\"", "\"server\"", dns_server, dns_port);
 
       println!("}}");
    }
