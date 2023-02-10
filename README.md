@@ -6,7 +6,7 @@ Ensure you flush your DNS cache before each use otherwise you'll hit cached answ
 
 Sample Output:
 
-![](output.png)
+![](output2.png)
 
 ## How To Use This
 
