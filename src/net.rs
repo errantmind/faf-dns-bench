@@ -1,6 +1,6 @@
 /*
-FaF is a cutting edge, high performance dns proxy
-Copyright (C) 2021  James Bates
+FaF is a high performance dns benchmarking tool
+Copyright (C) 2023  James Bates
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published by

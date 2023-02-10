@@ -1,3 +1,21 @@
+/*
+FaF is a high performance dns benchmarking tool
+Copyright (C) 2023  James Bates
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 // Domains fetched from Alexa on 2023-02-09 from: s3.amazonaws.com/alexa-static/top-1m.csv.zip
 
 #![allow(clippy::missing_safety_doc, clippy::uninit_assumed_init, dead_code)]
@@ -46,12 +64,25 @@ fn main() {
       //unsafe { query.as_mut_ptr().write_bytes(0, 512) };
    }
 
-   let dest_addr = unsafe {
-      let server_and_port = statics::ARGS.server.split(':').collect::<Vec<&str>>();
+   let (dns_server, dns_port) = if let Some(server) = statics::ARGS.server.as_ref() {
+      (server.to_string(), statics::ARGS.port)
+   } else {
+      let nslookup_output = std::process::Command::new("nslookup").arg(".").output().expect("nslookup either doesn't exist or failed to start.\nEither install nslookup or this programs options to manually specify a server/port");
+      let r: regex::Regex = regex::Regex::new(r"([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}#\d+)").unwrap();
+      let server_and_port = r.captures(std::str::from_utf8(&nslookup_output.stdout).unwrap()).unwrap().get(0).unwrap().as_str().to_string();
+      let server_and_port_split = server_and_port.split('#').collect::<Vec<&str>>();
+      let server = server_and_port_split[0];
+      let port = server_and_port_split[1].parse::<u16>().unwrap();
+      (server.to_string(), port)
+   };
+
+   println!("{dns_server}#{dns_port}");
+
+   let dns_addr = unsafe {
       net::sockaddr_in::new(
          const_sys::AF_INET as u16,
-         net::htons(server_and_port[1].parse::<u16>().unwrap()),
-         util::inet4_aton(server_and_port[0] as *const _ as *const u8, server_and_port[0].len()),
+         net::htons(dns_port),
+         util::inet4_aton(dns_server.as_str() as *const _ as *const u8, dns_server.len()),
       )
    };
    let local_udp_socket = net::get_udp_server_socket(0, const_sys::INADDR_ANY, 59233);
@@ -105,7 +136,7 @@ fn main() {
                queries[current_query].as_ptr() as _,
                queries[current_query].len() as _,
                0,
-               &dest_addr as *const _ as _,
+               &dns_addr as *const _ as _,
                net::SOCKADDR_IN_LEN as _
             );
 
@@ -197,7 +228,7 @@ fn main() {
       println!("  {:<9} : {:>7.2},", "\"max\"", max / 1_000_000f64);
       println!("  {:<9} : {:>7.2},", "\"samples (n)\"", statics::DOMAINS_TO_INCLUDE);
       println!("  {:<9} : {:>7},", "\"concurrency\"", statics::MAX_CONCURRENCY);
-      println!("  {:<9} : {:>7}", "\"server\"", statics::ARGS.server);
+      println!("  {:<9} : {:>7}#{}", "\"server\"", dns_server, dns_port);
 
       println!("}}");
    }

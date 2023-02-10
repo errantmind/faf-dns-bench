@@ -1,6 +1,6 @@
 /*
-FaF is a high performance DNS over TLS proxy
-Copyright (C) 2022  James Bates
+FaF is a high performance dns benchmarking tool
+Copyright (C) 2023  James Bates
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published by
@@ -18,17 +18,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Parser;
 
-/// FaF DNS Proxy - Faster DNS Resolution
+/// FaF DNS Bench - A DNS Resolution Benchmarker
 #[derive(Parser, Debug, Default)]
 #[clap(author, version, about, long_about = None)]
 pub struct Args {
-   /// debug, default: false
+   /// enable debug output
    #[clap(short, long)]
    #[clap(default_value_t = false)]
    pub debug: bool,
 
-   /// specify server and port
+   /// e.g. 1.1.1.1 [default: system default is parsed using `nslookup .`]
    #[clap(short, long)]
-   #[clap(default_value = "127.0.0.1:53")]
-   pub server: String,
+   pub server: Option<String>,
+
+   #[clap(short, long)]
+   #[clap(default_value_t = 53)]
+   pub port: u16,
 }

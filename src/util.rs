@@ -1,6 +1,6 @@
 /*
-FaF is a cutting edge, high performance dns proxy
-Copyright (C) 2021  James Bates
+FaF is a high performance dns benchmarking tool
+Copyright (C) 2023  James Bates
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published by
@@ -69,7 +69,7 @@ pub fn set_current_thread_cpu_affinity_to(cpu_num: usize) {
       sched_getaffinity(CURRENT_THREAD_CONTROL_PID, core::mem::size_of::<cpu_set_t>(), &mut set);
    }
    if !cpu_isset(cpu_num, &set) {
-      eprintln!("Cannot set affinity for cpu {}", cpu_num);
+      eprintln!("Cannot set affinity for cpu {cpu_num}");
    } else {
       let mut set_control: cpu_set_t = unsafe { core::mem::MaybeUninit::zeroed().assume_init() };
       cpu_set(cpu_num, &mut set_control);

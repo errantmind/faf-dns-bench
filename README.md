@@ -13,11 +13,14 @@ Sample Output:
 `cargo +nightly run --release`
 
 ```
+FaF DNS Bench - A DNS Resolution Benchmarker
+
 Usage: faf-dns-bench [OPTIONS]
 
 Options:
-  -d, --debug            debug, default: false
-  -s, --server <SERVER>  specify server and port [default: 127.0.0.1:53]
+  -d, --debug            enable debug output
+  -s, --server <SERVER>  e.g. 1.1.1.1 [default: system default is parsed using `nslookup .`]
+  -p, --port <PORT>      [default: 53]
   -h, --help             Print help
   -V, --version          Print version
 ```

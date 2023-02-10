@@ -42,6 +42,7 @@ faf-syscall = "*"
 mimalloc = { version = "*", default-features = false }
 
 clap = { version = "*", default-features = true, features = ["derive"] }
+regex = "*"
 lazy_static = "*"
 once_cell = "*"
 hashbrown = { version = "*", default-features = true, features = ["inline-more", "ahash"] }
