@@ -8,6 +8,6 @@ Sample Output:
 
 ![](output.png)
 
-## How to use
+## How To Use This
 
 `cargo +nightly run --release`
