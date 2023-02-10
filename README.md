@@ -11,3 +11,13 @@ Sample Output:
 ## How To Use This
 
 `cargo +nightly run --release`
+
+```
+Usage: faf-dns-bench [OPTIONS]
+
+Options:
+  -d, --debug            debug, default: false
+  -s, --server <SERVER>  specify server and port [default: 127.0.0.1:53]
+  -h, --help             Print help
+  -V, --version          Print version
+```
