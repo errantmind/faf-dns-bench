@@ -18,7 +18,7 @@ FaF DNS Bench - A DNS Resolution Benchmarker
 Usage: faf-dns-bench [OPTIONS]
 
 Options:
-  -d, --debug            enable debug output
+  -d, --debug            enable debug output [default: false]
   -s, --server <SERVER>  e.g. 1.1.1.1 [default: system default is parsed using `nslookup .`]
   -p, --port <PORT>      [default: 53]
   -h, --help             Print help

@@ -22,7 +22,7 @@ use clap::Parser;
 #[derive(Parser, Debug, Default)]
 #[clap(author, version, about, long_about = None)]
 pub struct Args {
-   /// enable debug output
+   /// enable debug output [default: false]
    #[clap(short, long)]
    #[clap(default_value_t = false)]
    pub debug: bool,
