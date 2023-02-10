@@ -27,13 +27,8 @@ pub struct Args {
    #[clap(default_value_t = false)]
    pub debug: bool,
 
-   /// num concurrent queries
+   /// specify server and port
    #[clap(short, long)]
-   #[clap(default_value_t = 8)]
-   pub concurrency: usize,
-
-   /// n domains to include in the test
-   #[clap(short, long)]
-   #[clap(default_value_t = 250)]
-   pub num_domains: usize,
+   #[clap(default_value = "127.0.0.1:53")]
+   pub server: String,
 }

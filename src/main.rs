@@ -47,10 +47,11 @@ fn main() {
    }
 
    let dest_addr = unsafe {
+      let server_and_port = statics::ARGS.server.split(':').collect::<Vec<&str>>();
       net::sockaddr_in::new(
          const_sys::AF_INET as u16,
-         net::htons(53),
-         util::inet4_aton("127.0.0.1" as *const _ as *const u8, "127.0.0.1".len()),
+         net::htons(server_and_port[1].parse::<u16>().unwrap()),
+         util::inet4_aton(server_and_port[0] as *const _ as *const u8, server_and_port[0].len()),
       )
    };
    let local_udp_socket = net::get_udp_server_socket(0, const_sys::INADDR_ANY, 59233);
@@ -189,11 +190,15 @@ fn main() {
 
       println!("results.json (ms)");
       println!("{{");
-      println!("  {:<9} : {:>7.2},", "\"mean\"", mean / 1_000_000f64);
       println!("  {:<9} : {:>7.2},", "\"median\"", median / 1_000_000f64);
+      println!("  {:<9} : {:>7.2},", "\"mean\"", mean / 1_000_000f64);
       println!("  {:<9} : {:>7.2},", "\"std dev\"", std_dev / 1_000_000f64);
       println!("  {:<9} : {:>7.2},", "\"min\"", min / 1_000_000f64);
-      println!("  {:<9} : {:>7.2}", "\"max\"", max / 1_000_000f64);
+      println!("  {:<9} : {:>7.2},", "\"max\"", max / 1_000_000f64);
+      println!("  {:<9} : {:>7.2},", "\"samples (n)\"", statics::DOMAINS_TO_INCLUDE);
+      println!("  {:<9} : {:>7},", "\"concurrency\"", statics::MAX_CONCURRENCY);
+      println!("  {:<9} : {:>7}", "\"server\"", statics::ARGS.server);
+
       println!("}}");
    }
 }
