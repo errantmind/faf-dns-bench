@@ -18,14 +18,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 // Domains fetched from Alexa on 2023-02-09 from: s3.amazonaws.com/alexa-static/top-1m.csv.zip
 
-#![allow(clippy::missing_safety_doc, clippy::uninit_assumed_init)]
+#![allow(clippy::missing_safety_doc)]
 #![feature(let_chains)]
 
 mod args;
-mod const_sys;
-mod data;
 mod statics;
-mod time;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -48,7 +45,7 @@ fn main() {
    print_version();
    assert!(statics::DOMAINS_TO_INCLUDE <= u16::MAX as usize, "You can not include more than 65535 (u16 MAX) domains");
 
-   let domains = data::read_domains(statics::DOMAINS_TO_INCLUDE);
+   let domains = read_domains(statics::DOMAINS_TO_INCLUDE);
    assert!(domains.len() == statics::DOMAINS_TO_INCLUDE);
 
    let mut queries = Vec::with_capacity(statics::DOMAINS_TO_INCLUDE);
@@ -86,9 +83,9 @@ fn main() {
    poll.registry().register(&mut local_udp_socket, MIO_TOKEN, mio::Interest::READABLE).unwrap();
    let mut events = mio::Events::with_capacity(340);
 
-   let mut current_time = time::get_timespec();
-   let mut timings_start: [time::timespec; statics::DOMAINS_TO_INCLUDE] = unsafe { core::mem::zeroed() };
-   let mut timings_end: [time::timespec; statics::DOMAINS_TO_INCLUDE] = unsafe { core::mem::zeroed() };
+   let mut current_time = std::time::SystemTime::now();
+   let mut timings_start = [(); statics::DOMAINS_TO_INCLUDE].map(|_| std::time::UNIX_EPOCH);
+   let mut timings_end = [(); statics::DOMAINS_TO_INCLUDE].map(|_| std::time::UNIX_EPOCH);
    let mut current_query = 0;
    let mut completed_queries: usize = 0;
    let mut outstanding_queries: usize = 0;
@@ -97,7 +94,7 @@ fn main() {
 
    loop {
       if completed_queries == statics::DOMAINS_TO_INCLUDE
-         || time::get_elapsed_ms(&time::get_timespec(), &current_time) > statics::COLLECTION_TIMEOUT_MS
+         || std::time::SystemTime::now().duration_since(current_time).unwrap().as_millis() > statics::COLLECTION_TIMEOUT_MS
       {
          break;
       }
@@ -109,7 +106,7 @@ fn main() {
                break;
             }
 
-            timings_start[current_query] = time::get_timespec();
+            timings_start[current_query] = std::time::SystemTime::now();
             local_udp_socket.send(&queries[current_query]).unwrap();
             current_query += 1;
             outstanding_queries += 1;
@@ -123,7 +120,7 @@ fn main() {
                assert!(num_bytes_read > 0 && num_bytes_read < 512);
 
                let id_from_response = u16::swap_bytes(unsafe { *(response_buf.as_ptr() as *const u16) });
-               timings_end[id_from_response as usize] = time::get_timespec();
+               timings_end[id_from_response as usize] = std::time::SystemTime::now();
                let domain_str = get_question_as_string(response_buf.as_ptr(), num_bytes_read);
                if statics::ARGS.debug {
                   println!("{num_bytes_read:>4}b -> {domain_str}");
@@ -133,7 +130,7 @@ fn main() {
 
                outstanding_queries -= 1;
                completed_queries += 1;
-               current_time = time::get_timespec();
+               current_time = std::time::SystemTime::now();
             }
          }
       }
@@ -146,10 +143,10 @@ fn main() {
       let mut elapsed_ns = Vec::with_capacity(statics::DOMAINS_TO_INCLUDE);
 
       for i in 0..statics::DOMAINS_TO_INCLUDE {
-         if (timings_start[i].tv_sec == 0 && timings_start[i].tv_nsec == 0) || (timings_end[i].tv_sec == 0 && timings_end[i].tv_nsec == 0) {
+         if timings_start[i] == std::time::UNIX_EPOCH || timings_end[i] == std::time::UNIX_EPOCH {
             continue;
          } else {
-            elapsed_ns.push(time::get_elapsed_ns(&timings_end[i], &timings_start[i]));
+            elapsed_ns.push(timings_end[i].duration_since(timings_start[i]).unwrap().as_nanos());
          }
       }
 
@@ -186,6 +183,26 @@ fn main() {
 
 fn print_version() {
    println!("{} v{} | repo: https://github.com/errantmind/faf-dns-bench\n", statics::PROJECT_NAME, statics::VERSION,);
+}
+
+/// Returns the bytes from the specified file. Unbuffered as there is no need atm. If large
+/// files are added in the future (multiple GB), will need to add buffering.
+#[inline(always)]
+pub fn read_domains(num_domains_to_read: usize) -> Vec<String> {
+   use std::io::BufRead;
+
+   let file = std::fs::File::open(std::path::Path::new(crate::statics::PROJECT_DIR).join("data").join("top-65535.csv")).unwrap();
+   let reader = std::io::BufReader::with_capacity(1 << 15, file);
+   let mut parsed_domains = Vec::with_capacity(num_domains_to_read);
+   for (i, line) in reader.lines().enumerate() {
+      if i < num_domains_to_read {
+         parsed_domains.push(line.unwrap().trim().split(',').collect::<Vec<&str>>()[1].to_string());
+      } else {
+         break;
+      }
+   }
+
+   parsed_domains
 }
 
 fn construct_query<'a>(domain: &str, id: u16, dest_buf: &mut [u8]) -> &'a [u8] {

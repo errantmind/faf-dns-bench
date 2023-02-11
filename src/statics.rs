@@ -24,4 +24,4 @@ pub static ARGS: once_cell::sync::Lazy<crate::args::Args> = once_cell::sync::Laz
 
 pub const DOMAINS_TO_INCLUDE: usize = 250;
 pub const MAX_CONCURRENCY: usize = 8;
-pub const COLLECTION_TIMEOUT_MS: i64 = 2000;
+pub const COLLECTION_TIMEOUT_MS: u128 = 2000;
