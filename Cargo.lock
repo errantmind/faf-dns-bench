@@ -129,7 +129,6 @@ name = "faf-dns-bench"
 version = "0.2.0"
 dependencies = [
  "clap",
- "faf-syscall",
  "hashbrown",
  "lazy_static",
  "mimalloc",
@@ -138,12 +137,6 @@ dependencies = [
  "regex",
  "statrs",
 ]
-
-[[package]]
-name = "faf-syscall"
-version = "3.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60d326b3ace402d4471ca530837ed8cc887bec20f65da62f198ecfa637f71492"
 
 [[package]]
 name = "generic-array"

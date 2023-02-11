@@ -36,8 +36,6 @@ codegen-units = 1
 
 
 [dependencies]
-faf-syscall = "*"
-
 # FFI bindings to better allocator designed by Microsoft
 mimalloc = { version = "*", default-features = false }
 
