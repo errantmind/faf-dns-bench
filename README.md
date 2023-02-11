@@ -1,6 +1,6 @@
 # faf-dns-bench
 
-A (linux-only) tool to benchmark DNS resolution.
+A crossplatform tool to benchmark DNS resolution.
 
 Ensure you flush your DNS cache before each use otherwise you'll hit cached answers which invalidate the results.
 

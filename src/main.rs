@@ -40,27 +40,40 @@ fn main() {
    // Pre-compute the DNS query for each domain
    for (id, domain) in domains.iter().enumerate() {
       queries.push(construct_query(domain.as_str(), id as u16, &mut query_buf).to_vec());
-
-      // Don't need to zero the buffer, it is entirely overwritten
-      //unsafe { query.as_mut_ptr().write_bytes(0, 512) };
    }
 
+   // Get dns_server to benchmark.
+   //
    let (dns_server, dns_port) = if let Some(server) = statics::ARGS.server.as_ref() {
+      // Prefer options specified in ARGS.
       (server.to_string(), statics::ARGS.port)
    } else {
-      let nslookup_output = std::process::Command::new("nslookup").arg(".").output().expect("nslookup either doesn't exist or failed to start.\nEither install nslookup or this programs options to manually specify a server/port");
-      let r: regex::Regex = regex::Regex::new(r"([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}#\d+)").unwrap();
-      let server_and_port = r.captures(std::str::from_utf8(&nslookup_output.stdout).unwrap()).unwrap().get(0).unwrap().as_str().to_string();
-      let server_and_port_split = server_and_port.split('#').collect::<Vec<&str>>();
-      let server = server_and_port_split[0];
-      let port = server_and_port_split[1].parse::<u16>().unwrap();
-      (server.to_string(), port)
+      // Regex for output in the form:
+      // Server:         127.0.0.1
+      // Address:        127.0.0.1#53
+      let ip_and_port_regex: regex::Regex = regex::Regex::new(r"([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}#\d+)").unwrap();
+
+      // Regex for output in the form (missing port on Windows):
+      // Server:         127.0.0.1
+      // Address:        127.0.0.1
+      let ip_only_regex: regex::Regex = regex::Regex::new(r"([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3})").unwrap();
+      let nslookup_output = std::process::Command::new("nslookup").arg(".").output().expect("nslookup either doesn't exist or failed to start. Either install nslookup or use this program's options to manually specify a DNS server/port to benchmark");
+
+      if let Some(ip_and_port)  = ip_and_port_regex.captures(std::str::from_utf8(&nslookup_output.stdout).unwrap()) && ip_and_port.len() > 0 {
+         let first_capture_as_string = ip_and_port.get(0).unwrap().as_str().to_string();
+         let server_and_port_split = first_capture_as_string.split('#').collect::<Vec<&str>>();
+         (server_and_port_split[0].to_string(), server_and_port_split[1].parse::<u16>().unwrap())
+      } else if let Some(ip_only) = ip_only_regex.captures(std::str::from_utf8(&nslookup_output.stdout).unwrap()) && ip_only.len() > 0 {
+         (ip_only.get(0).unwrap().as_str().to_string(), statics::ARGS.port)
+      } else {
+         println!("Could not parse `nslookup .` output to determine your default DNS. Use this program's options to manually specify a DNS server/port to benchmark");
+         return;
+      }
    };
 
    println!("Benchmarking {dns_server}#{dns_port}\n");
 
    let mut local_udp_socket = mio::net::UdpSocket::bind("0.0.0.0:59233".parse().unwrap()).unwrap();
-
    let dns_addr = format!("{}:{}", dns_server.as_str(), dns_port);
    local_udp_socket.connect(dns_addr.parse().unwrap()).unwrap();
 
