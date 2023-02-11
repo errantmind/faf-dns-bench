@@ -176,7 +176,6 @@ fn main() {
       println!("  {:<13} : {:>7.2},", "\"n_samples\"", statics::DOMAINS_TO_INCLUDE);
       println!("  {:<13} : {:>7},", "\"concurrency\"", statics::MAX_CONCURRENCY);
       println!("  {:<13} : \"{:>7}#{}\"", "\"server\"", dns_server, dns_port);
-
       println!("}}");
    }
 }
