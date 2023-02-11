@@ -27,20 +27,6 @@ mod statics;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-#[repr(C)]
-pub union epoll_data {
-   pub ptr: isize,
-   pub fd: i32,
-   pub uint32_t: u32,
-   pub uint64_t: u64,
-}
-
-#[repr(C, packed)]
-pub struct epoll_event {
-   pub events: u32,
-   pub data: epoll_data,
-}
-
 fn main() {
    print_version();
    assert!(statics::DOMAINS_TO_INCLUDE <= u16::MAX as usize, "You can not include more than 65535 (u16 MAX) domains");
