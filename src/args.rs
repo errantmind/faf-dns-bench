@@ -34,4 +34,14 @@ pub struct Args {
    #[clap(short, long)]
    #[clap(default_value_t = 53)]
    pub port: u16,
+
+   /// the name of the benchmark group. Used when saving the results to file
+   #[clap(short, long)]
+   #[clap(default_value = "untitled")]
+   pub bench: String,
+
+   /// clear the saved benchmark stats
+   #[clap(short, long)]
+   #[clap(default_value_t = false)]
+   pub clear: bool,
 }

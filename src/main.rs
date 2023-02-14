@@ -22,6 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #![feature(let_chains)]
 
 mod args;
+mod json_stats;
 mod statics;
 
 #[global_allocator]
@@ -29,11 +30,19 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() {
    print_version();
+   {
+      // Handle `clear` argument
+
+      if statics::ARGS.clear {
+         json_stats::StatsSet::clear();
+         println!("Stats Cleared.");
+         return;
+      }
+   }
+
    assert!(statics::DOMAINS_TO_INCLUDE <= u16::MAX as usize, "You can not include more than 65535 (u16 MAX) domains");
 
    let domains = read_domains(statics::DOMAINS_TO_INCLUDE);
-   assert!(domains.len() == statics::DOMAINS_TO_INCLUDE);
-
    let mut queries = Vec::with_capacity(statics::DOMAINS_TO_INCLUDE);
    let mut query_buf: Vec<u8> = vec![0; 512];
 
@@ -43,7 +52,6 @@ fn main() {
    }
 
    // Get dns_server to benchmark.
-   //
    let (dns_server, dns_port) = if let Some(server) = statics::ARGS.server.as_ref() {
       // Prefer options specified in ARGS.
       (server.to_string(), statics::ARGS.port)
@@ -57,8 +65,8 @@ fn main() {
       // Server:         127.0.0.1
       // Address:        127.0.0.1
       let ip_only_regex: regex::Regex = regex::Regex::new(r"([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3})").unwrap();
-      let nslookup_output = std::process::Command::new("nslookup").arg(".").output().expect("nslookup either doesn't exist or failed to start. Either install nslookup or use this program's options to manually specify a DNS server/port to benchmark");
 
+      let nslookup_output = std::process::Command::new("nslookup").arg(".").output().expect("nslookup either doesn't exist or failed to start. Either install nslookup or use this program's options to manually specify a DNS server/port to benchmark");
       if let Some(ip_and_port)  = ip_and_port_regex.captures(std::str::from_utf8(&nslookup_output.stdout).unwrap()) && ip_and_port.len() > 0 {
          let first_capture_as_string = ip_and_port.get(0).unwrap().as_str().to_string();
          let server_and_port_split = first_capture_as_string.split('#').collect::<Vec<&str>>();
@@ -176,6 +184,20 @@ fn main() {
       println!("  {:<13} : {:>7},", "\"concurrency\"", statics::MAX_CONCURRENCY);
       println!("  {:<13} : \"{:>7}#{}\"", "\"server\"", dns_server, dns_port);
       println!("}}");
+
+      json_stats::StatsSet::load()
+         .push(json_stats::Stats {
+            benchmark_name: statics::ARGS.bench.to_owned(),
+            dns_server: format!("{dns_server}#{dns_port}"),
+            n_samples: statics::DOMAINS_TO_INCLUDE,
+            concurrency: statics::MAX_CONCURRENCY,
+            median_ns: median,
+            mean_ns: mean,
+            stddev_ns: std_dev,
+            min_ns: min,
+            max_ns: max,
+         })
+         .save();
    }
 }
 
@@ -189,7 +211,7 @@ fn print_version() {
 pub fn read_domains(num_domains_to_read: usize) -> Vec<String> {
    use std::io::BufRead;
 
-   let file = std::fs::File::open(std::path::Path::new(crate::statics::PROJECT_DIR).join("data").join("top-65535.csv")).unwrap();
+   let file = std::fs::File::open(std::path::Path::new(statics::PROJECT_DIR).join("data").join("top-65535.csv")).unwrap();
    let reader = std::io::BufReader::with_capacity(1 << 15, file);
    let mut parsed_domains = Vec::with_capacity(num_domains_to_read);
    for (i, line) in reader.lines().enumerate() {
