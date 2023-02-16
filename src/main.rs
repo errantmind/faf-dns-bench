@@ -144,8 +144,6 @@ fn main() {
    }
 
    {
-      use statrs::statistics::Statistics;
-
       // Benchmark done, calculate stats
       let mut elapsed_ns = Vec::with_capacity(statics::DOMAINS_TO_INCLUDE);
 
@@ -161,8 +159,8 @@ fn main() {
 
       let elapsed_ns_as_f64: Vec<f64> = elapsed_ns.iter().map(|x| *x as f64).collect();
       let median = elapsed_ns[elapsed_ns.len() / 2] as f64;
-      let mean = Statistics::mean(&elapsed_ns_as_f64);
-      let std_dev = Statistics::std_dev(&elapsed_ns_as_f64);
+      let mean = statrs::statistics::Statistics::mean(&elapsed_ns_as_f64);
+      let std_dev = statrs::statistics::Statistics::std_dev(&elapsed_ns_as_f64);
       let min = elapsed_ns[0] as f64;
       let max = elapsed_ns[elapsed_ns.len() - 1] as f64;
 
